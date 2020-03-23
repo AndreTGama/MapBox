@@ -108,7 +108,7 @@
                     instructions.innerHTML =
                     '<br><span class="duration">Tempo de Viagem: ' +
                     Math.floor(data.duration / 60) +
-                    ' min 🚴 </span>' +
+                    ' min </span>' +
                     tripInstructions;
                 }
             };
@@ -276,7 +276,7 @@
             }
             // Set the profile to `driving`
             // Coordinates will include the current location of the truck,
-            return 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/' + coordinates.join(';') + '?distributions=' + distributions.join(';') + '&overview=full&steps=true&geometries=geojson&source=first&access_token=' + mapboxgl.accessToken;
+            return 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/' + coordinates.join(';') + '?distributions=' + distributions.join(';') + '&overview=full&steps=true&language=pt-br&geometries=geojson&source=first&access_token=' + mapboxgl.accessToken;
         }
         function objectToArray(obj) {
             var keys = Object.keys(obj);
@@ -294,7 +294,6 @@
             }).done(function(data) {
                 // Create a GeoJSON feature collection
                 var routeGeoJSON = turf.featureCollection([turf.feature(data.trips[0].geometry)]);
-
                 // If there is no route provided, reset
                 if (!data.trips[0]) {
                 routeGeoJSON = nothing;
@@ -303,6 +302,26 @@
                 // and setting the data equal to routeGeoJSON
                 map.getSource('route')
                     .setData(routeGeoJSON);
+                }
+                var instructions = document.getElementById('instructions');
+                var steps = data.trips[0].legs;
+                var newSteps = [];
+                var tripInstructions = [];
+                console.log('steps',steps[0].steps[0].maneuver.instruction);
+                for (var i = 0; i < steps.length; i++) {
+                    for (var j = 0; j < steps[i].steps.length; j++){
+                        tripInstructions.push(steps[i].steps[j].maneuver.instruction);                   
+                    }
+                }
+                console.log('trip',tripInstructions);
+                for(var k = 0; k < tripInstructions.length; k++){
+                    newSteps.push('<br><li>' + tripInstructions[k]) +
+                    '</li>';
+                    instructions.innerHTML =
+                    '<br><span class="duration">Tempo de Viagem: ' +
+                    Math.floor(data.trips[0].duration / 60) +
+                    ' min </span>' +
+                    newSteps;
                 }
             })            
         }
