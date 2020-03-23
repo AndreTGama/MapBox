@@ -1,0 +1,130 @@
+<html>
+  <head>
+    <meta charset=utf-8 />
+    <title>Turf.js Map</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.mapbox.com/mapbox.js/v3.2.1/mapbox.js'></script>
+    <link href='https://api.mapbox.com/mapbox.js/v3.2.1/mapbox.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js'></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id='map'></div>
+    <script>
+      const result = null;
+      $(document).ready(function(){
+        var result = null;
+        $.ajax({url: "http://127.0.0.1:8000/api/escola/lista",
+              context: document.body,
+              success: function(data){
+                var json = data; 
+                const result = json.escolas;
+                console.log(Object.values(result));
+              },
+              error: function(data){
+                var json = $.parseJSON(data);
+                alert(json.error);
+              }
+          });
+      });
+      L.mapbox.accessToken = 'pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
+      var libraries = {
+        "type": "FeatureCollection",
+        "features": [
+          { 
+            "type": "Feature",
+            "properties": { 
+              "Name": "HERMOGENES MAJOR", 
+              "Address": "IPIRANGA , SN, RUA, 12701210, VILA PAULISTA"
+            },
+            "geometry": { 
+              "type": "Point", 
+              "coordinates": [ 
+                -44.9695124, 
+                -22.5839855 
+                ] 
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "Name": "HUMBERTO TURNER",
+              "ADDRESS": "LUIZ BITTENCOURT , 525, AVENIDA, 12730160, ITAGACABA"
+            },
+            "geometry": {
+              "type": "Point", 
+              "coordinates": [ 
+                -44.95557, 
+                -22.583294 
+              ] 
+            }
+          }  
+        ]
+      };
+
+      for (var j = 0; j < libraries.features.length; j++) {
+        libraries.features[j].properties['marker-color'] = '#4169E1';
+        libraries.features[j].properties['marker-symbol'] = 'library';
+        libraries.features[j].properties['marker-size'] = 'small';
+      }
+
+      var map = L.mapbox.map('map')
+        .setView([-44.9695124, -22.5839855], 12)
+        .addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/outdoors-v11'));
+
+      var libraryLayer = L.mapbox.featureLayer(libraries)
+        .addTo(map);
+
+      map.fitBounds(libraryLayer.getBounds());
+
+      libraryLayer.eachLayer(function(layer) {
+        layer.bindPopup(layer.feature.properties.Name, { closeButton: false });
+      }).addTo(map);
+
+      libraryLayer.on('mouseover', function(e) {
+        e.layer.openPopup();
+      });
+
+      function reset() {
+        var hospitalFeatures = hospitalLayer.getGeoJSON();
+        for (var k = 0; k < hospitalFeatures.features.length; k++) {
+          hospitalFeatures.features[k].properties['marker-size'] = 'small';
+        }
+        hospitalLayer.setGeoJSON(hospitalFeatures);
+      }
+
+      libraryLayer.on('click', function(e) {
+        reset();
+        var libraryFeatures = libraryLayer.getGeoJSON();
+        var hospitalFeatures = hospitalLayer.getGeoJSON();
+        var nearestHospital = turf.nearest(e.layer.feature, hospitalFeatures);
+        nearestHospital.properties['marker-size'] = 'large';
+        hospitalLayer.setGeoJSON(hospitalFeatures);
+        hospitalLayer.eachLayer(function(layer) {
+          layer.bindPopup('<strong>' + layer.feature.properties.Name + '</strong>', { closeButton: false });
+          if (layer.feature.properties['marker-size'] === 'large') {
+            layer.openPopup();
+          }
+        });
+      });
+
+      map.on('click', function(e) {
+        reset();
+      });     
+
+    </script>
+  </body>
+</html>
