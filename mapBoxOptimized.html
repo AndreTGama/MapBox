@@ -4,22 +4,55 @@
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.js'></script>
     <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
     <link href='style.css' rel='stylesheet' />
   </head>
   <body>
     <div id='map'></div>
     <div id='instructions'></div>
     <script>
+        // Position the car
+        var start = [-44.9695124, -22.5839855];
+        // End Position
+        var schoolLocation = [-44.9611124, -22.5899800];
+        var lastQueryTime = 0;
+        var lastAtRestaurant = 0;
+        var keepTrack = [];
+        var currentSchedule = [];
+        var currentRoute = null;
+        var pointHopper = {};
+        var pause = true;
+        var speedFactor = 50;
+
+        // Location in array,location where bus will get students.
+        var markerStudents = {
+            type: 'FeatureCollection',
+            features: [
+                { type: 'Feature', properties: { Name: 'VA Medical Center -- Leestown Division', Address: '2250 Leestown Rd' }, geometry: { type: 'Point', coordinates: [-44.969957, -22.587863] } },
+                { type: 'Feature', properties: { Name: 'St. Joseph East', Address: '150 N Eagle Creek Dr' }, geometry: { type: 'Point', coordinates: [-44.952492, -22.579713] } },
+                { type: 'Feature', properties: { Name: 'Central Baptist Hospital', Address: '1740 Nicholasville Rd' }, geometry: { type: 'Point', coordinates: [-44.946772, -22.563517] } },
+                { type: 'Feature', properties: { Name: 'VA Medical Center -- Cooper Dr Division', Address: '1101 Veterans Dr' }, geometry: { type: 'Point', coordinates: [-44.971398, -22.579019] } },
+                { type: 'Feature', properties: { Name: 'Shriners Hospital for Children', Address: '1900 Richmond Rd' }, geometry: { type: 'Point', coordinates: [-44.962679, -22.573512] } },
+                { type: 'Feature', properties: { Name: 'Eastern State Hospital', Address: '627 W Fourth St' }, geometry: { type: 'Point', coordinates: [-44.960821, -22.572569] } }
+            ]
+        };
         mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
         var map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v10',
-            center: [-44.9695124, -22.5839855 ],
+            center: start,
             zoom: 12
         });
-       
+        // Create a GeoJSON feature collection for the warehouse
+        var warehouse = turf.featureCollection([turf.point(schoolLocation)]);
+        // Create an empty GeoJSON feature collection for drop-off locations
+        var dropoffs = turf.featureCollection([]);
+        // Create an empty GeoJSON feature collection, which will be used as the data source for the route before users add any new data
+        var nothing = turf.featureCollection([]);
+
         var canvas = map.getCanvasContainer();
-        var start = [-44.9695124, -22.5839855 ];
+
         function getRoute(end) {
             var url = 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/' + start[0] + ',' + start[1] + ';' + end[0] + ',' + end[1] +'?steps=true&language=pt-br&geometries=geojson&access_token=' + mapboxgl.accessToken;
             var curl = 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/'+ start[0] + ',' + start[1] +';-44.9796124,-22.5777855;'+ -44.9685224 + ','+ -22.5879755 + ';'+ -44.9655224 + ','+ -22.5859755 + '?steps=true&language=pt-br&geometries=geojson&access_token=pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
@@ -27,7 +60,6 @@
             req.open('GET', url, true);
             req.onload = function() {
                 var json = JSON.parse(req.response);
-                console.log(json);
                 var data = json.trips[0];
                 var route = data.geometry.coordinates;
                 var geojson = {
@@ -106,53 +138,221 @@
                     'circle-color': '#3887be'
                 }
             });
-        });
-        map.on('click', function(e) {
-            var coordsObj = e.lngLat;
-            canvas.style.cursor = '';
-            var coords = Object.keys(coordsObj).map(function(key) {
-                return coordsObj[key];
-            });
-            var end = {
-                type: 'FeatureCollection',
-                features: [{
-                type: 'Feature',
-                properties: {},
-                geometry: {
-                    type: 'Point',
-                    coordinates: coords
-                }
-                }
-                ]
-            };
-            if (map.getLayer('end')) {
-                map.getSource('end').setData(end);
-            } else {
-                map.addLayer({
-                id: 'end',
+            //Create a School Maker
+            // Create a circle layer
+            map.addLayer({
+                id: 'warehouse',
                 type: 'circle',
                 source: {
-                    type: 'geojson',
-                    data: {
-                    type: 'FeatureCollection',
-                    features: [{
-                        type: 'Feature',
-                        properties: {},
-                        geometry: {
-                        type: 'Point',
-                        coordinates: coords
-                        }
-                    }]
-                    }
+                    data: warehouse,
+                    type: 'geojson'
                 },
                 paint: {
-                    'circle-radius': 10,
-                    'circle-color': '#f30'
+                    'circle-radius': 20,
+                    'circle-color': 'white',
+                    'circle-stroke-color': '#3887be',
+                    'circle-stroke-width': 3
                 }
+            });
+            // Create a symbol layer on top of circle layer
+            map.addLayer({
+                id: 'warehouse-symbol',
+                type: 'symbol',
+                source: {
+                    data: warehouse,
+                    type: 'geojson'
+                },
+                layout: {
+                    'icon-image': 'school-15',
+                    'icon-size': 1
+                },
+                paint: {
+                    'text-color': '#3887be'
+                }
+            });
+            //Marker Dropffs
+            map.addLayer({
+                id: 'dropoffs-symbol',
+                type: 'symbol',
+                source: {
+                    data: dropoffs,
+                    type: 'geojson'
+                },
+                layout: {
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true,
+                    'icon-image': 'bus-15',
+                }
+            });
+            map.addSource('route', {
+                type: 'geojson',
+                data: nothing
+            });
+            map.addLayer({
+                id: 'routeline-active',
+                type: 'line',
+                source: 'route',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#3887be',
+                    'line-width': [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        12, 3,
+                        22, 12
+                    ]
+                }
+            }, 'waterway-label');
+            map.addLayer({
+                id: 'routearrows',
+                type: 'symbol',
+                source: 'route',
+                layout: {
+                    'symbol-placement': 'line',
+                    'text-field': '▶',
+                    'text-size': [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        12, 60,
+                        48, 120
+                    ],
+                    'symbol-spacing': [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        12, 30,
+                        22, 160
+                    ],
+                    'text-keep-upright': false
+                },
+                paint: {
+                    'text-color': '#3887be',
+                    'text-halo-color': 'hsl(55, 11%, 96%)',
+                    'text-halo-width': 3
+                }
+            }, 'waterway-label');
+            // When the map is clicked, add a new drop-off point
+            // and update the `dropoffs-symbol` layer
+            updateDropoffs(markerStudents);
+        });
+        // Here you'll specify all the parameters necessary for requesting a response from the Optimization API
+        function assembleQueryURL() {
+            // Store the location of the truck in a variable called coordinates
+            var coordinates = [start];
+            var distributions = [];
+            keepTrack = [start];
+            // Create an array of GeoJSON feature collections for each point
+            var restJobs = pointHopper.features;
+            // If there are any orders from this restaurant
+            if (restJobs.length > 0) {
+                // Check to see if the request was made after visiting the restaurant
+                var needToPickUp = restJobs.filter(function(d, i) {
+                    return d.properties.orderTime > lastAtRestaurant;
+                }).length > 0;
+                console.log(needToPickUp);
+                // If the request was made after picking up from the restaurant,
+                // Add the restaurant as an additional stop
+                if (!needToPickUp) {
+                    var restaurantIndex = coordinates.length;
+                    // Add the restaurant as a coordinate
+                    coordinates.push(schoolLocation);
+                    // push the restaurant itself into the array
+                    keepTrack.push(pointHopper.school);
+                }
+                restJobs.forEach(function(d, i) {
+                    // Add dropoff to list
+                    keepTrack.push(d);
+                    coordinates.push(d.geometry.coordinates);
+                    // if order not yet picked up, add a reroute
+                    if (needToPickUp && d.properties.orderTime > lastAtRestaurant) {
+                        distributions.push(restaurantIndex + ',' + (coordinates.length - 1));
+                    }
                 });
             }
-            getRoute(coords);
-        });
+            // Set the profile to `driving`
+            // Coordinates will include the current location of the truck,
+            return 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/' + coordinates.join(';') + '?distributions=' + distributions.join(';') + '&overview=full&steps=true&geometries=geojson&source=first&access_token=' + mapboxgl.accessToken;
+        }
+        function objectToArray(obj) {
+            var keys = Object.keys(obj);
+            var routeGeoJSON = keys.map(function(key) {
+                return obj[key];
+            });
+            return routeGeoJSON;
+        }  
+        function updateDropoffs(geojson) {
+            map.getSource('dropoffs-symbol').setData(geojson);
+            pointHopper = geojson;
+            $.ajax({
+                method: 'GET',
+                url: assembleQueryURL(),
+            }).done(function(data) {
+                // Create a GeoJSON feature collection
+                var routeGeoJSON = turf.featureCollection([turf.feature(data.trips[0].geometry)]);
+
+                // If there is no route provided, reset
+                if (!data.trips[0]) {
+                routeGeoJSON = nothing;
+                } else {
+                // Update the `route` source by getting the route source
+                // and setting the data equal to routeGeoJSON
+                map.getSource('route')
+                    .setData(routeGeoJSON);
+                }
+            })            
+        }
+
+        // map.on('click', function(e) {
+        //     var coordsObj = e.lngLat;
+        //     canvas.style.cursor = '';
+        //     var coords = Object.keys(coordsObj).map(function(key) {
+        //         return coordsObj[key];
+        //     });
+        //     var end = {
+        //         type: 'FeatureCollection',
+        //         features: [{
+        //         type: 'Feature',
+        //         properties: {},
+        //         geometry: {
+        //             type: 'Point',
+        //             coordinates: coords
+        //         }
+        //         }
+        //         ]
+        //     };
+        //     if (map.getLayer('end')) {
+        //         map.getSource('end').setData(end);
+        //     } else {
+        //         map.addLayer({
+        //         id: 'end',
+        //         type: 'circle',
+        //         source: {
+        //             type: 'geojson',
+        //             data: {
+        //             type: 'FeatureCollection',
+        //             features: [{
+        //                 type: 'Feature',
+        //                 properties: {},
+        //                 geometry: {
+        //                 type: 'Point',
+        //                 coordinates: coords
+        //                 }
+        //             }]
+        //             }
+        //         },
+        //         paint: {
+        //             'circle-radius': 10,
+        //             'circle-color': '#f30'
+        //         }
+        //         });
+        //     }
+        //     getRoute(coords);
+        // });
     </script>
   </body>
 </html>
