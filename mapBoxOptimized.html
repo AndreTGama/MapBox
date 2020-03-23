@@ -12,16 +12,14 @@
     <script>
         mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
         var map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/streets-v10',
-        center: [-44.9695124, -22.5839855 ],
-        zoom: 12
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v10',
+            center: [-44.9695124, -22.5839855 ],
+            zoom: 12
         });
        
         var canvas = map.getCanvasContainer();
-       
         var start = [-44.9695124, -22.5839855 ];
-       
         function getRoute(end) {
             var url = 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/' + start[0] + ',' + start[1] + ';' + end[0] + ',' + end[1] +'?steps=true&language=pt-br&geometries=geojson&access_token=' + mapboxgl.accessToken;
             var curl = 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/'+ start[0] + ',' + start[1] +';-44.9796124,-22.5777855;'+ -44.9685224 + ','+ -22.5879755 + ';'+ -44.9655224 + ','+ -22.5859755 + '?steps=true&language=pt-br&geometries=geojson&access_token=pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
