@@ -10,12 +10,19 @@
   </head>
   <body>
     <div id='map'></div>
-    <div id='instructions'></div>
+    <div id='instructions'>
+        <div class='instructions-header'>
+        </div>
+        <div class='instructions-body'>
+        </div>
+        <div class='instructions-footer'>
+        </div>
+    </div>
     <script>
         // Position the car
         var start = [-44.9695124, -22.5839855];
         // End Position
-        var schoolLocation = [-44.9611124, -22.5899800];
+        var schoolLocation = [-44.9695124, -22.5839855];
         var lastQueryTime = 0;
         var lastAtRestaurant = 0;
         var keepTrack = [];
@@ -24,127 +31,54 @@
         var pointHopper = {};
         var pause = true;
         var speedFactor = 50;
+        var apiCoordenadas = [];
 
+        function myFunction(item, index) {
+            apiCoordenadas.push(item);
+        }
+        $.ajax({
+            method: 'GET',
+            url: 'http://127.0.0.1:8000/api/rotas-escola',
+        }).done(function(data) {
+            var messages = data.message;
+            messages.forEach(myFunction);
+        });
+        console.log(apiCoordenadas);
         // Location in array,location where bus will get students.
         var markerStudents = {
             type: 'FeatureCollection',
-            features: [
-                { type: 'Feature', properties: { Name: 'VA Medical Center -- Leestown Division', Address: '2250 Leestown Rd' }, geometry: { type: 'Point', coordinates: [-44.969957, -22.587863] } },
-                { type: 'Feature', properties: { Name: 'St. Joseph East', Address: '150 N Eagle Creek Dr' }, geometry: { type: 'Point', coordinates: [-44.952492, -22.579713] } },
-                { type: 'Feature', properties: { Name: 'Central Baptist Hospital', Address: '1740 Nicholasville Rd' }, geometry: { type: 'Point', coordinates: [-44.946772, -22.563517] } },
-                { type: 'Feature', properties: { Name: 'VA Medical Center -- Cooper Dr Division', Address: '1101 Veterans Dr' }, geometry: { type: 'Point', coordinates: [-44.971398, -22.579019] } },
-                { type: 'Feature', properties: { Name: 'Shriners Hospital for Children', Address: '1900 Richmond Rd' }, geometry: { type: 'Point', coordinates: [-44.962679, -22.573512] } },
-                { type: 'Feature', properties: { Name: 'Eastern State Hospital', Address: '627 W Fourth St' }, geometry: { type: 'Point', coordinates: [-44.960821, -22.572569] } }
-            ]
+            features: 
+                apiCoordenadas
+                // { type: 'Feature', properties: { Name: 'VA Medical Center -- Leestown Division', Address: '2250 Leestown Rd' }, geometry: { type: 'Point', coordinates: [-44.969957, -22.587863] } },
+                // { type: 'Feature', properties: { Name: 'St. Joseph East', Address: '150 N Eagle Creek Dr' }, geometry: { type: 'Point', coordinates: [-44.952492, -22.579713] } },
+                // { type: 'Feature', properties: { Name: 'Central Baptist Hospital', Address: '1740 Nicholasville Rd' }, geometry: { type: 'Point', coordinates: [-44.946772, -22.563517] } },
+                // { type: 'Feature', properties: { Name: 'VA Medical Center -- Cooper Dr Division', Address: '1101 Veterans Dr' }, geometry: { type: 'Point', coordinates: [-44.971398, -22.579019] } },
+                // { type: 'Feature', properties: { Name: 'Shriners Hospital for Children', Address: '1900 Richmond Rd' }, geometry: { type: 'Point', coordinates: [-44.962679, -22.573512] } },
+                // { type: 'Feature', properties: { Name: 'Eastern State Hospital', Address: '627 W Fourth St' }, geometry: { type: 'Point', coordinates: [-44.960821, -22.572569] } }
+            
         };
         mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
         var map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v10',
-            center: start,
+            center: schoolLocation,
             zoom: 12
         });
         // Create a GeoJSON feature collection for the warehouse
-        var warehouse = turf.featureCollection([turf.point(schoolLocation)]);
+        var school = turf.featureCollection([turf.point(schoolLocation)]);
         // Create an empty GeoJSON feature collection for drop-off locations
         var dropoffs = turf.featureCollection([]);
         // Create an empty GeoJSON feature collection, which will be used as the data source for the route before users add any new data
         var nothing = turf.featureCollection([]);
 
-        var canvas = map.getCanvasContainer();
-
-        function getRoute(end) {
-            var url = 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/' + start[0] + ',' + start[1] + ';' + end[0] + ',' + end[1] +'?steps=true&language=pt-br&geometries=geojson&access_token=' + mapboxgl.accessToken;
-            var curl = 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/'+ start[0] + ',' + start[1] +';-44.9796124,-22.5777855;'+ -44.9685224 + ','+ -22.5879755 + ';'+ -44.9655224 + ','+ -22.5859755 + '?steps=true&language=pt-br&geometries=geojson&access_token=pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
-            var req = new XMLHttpRequest();
-            req.open('GET', url, true);
-            req.onload = function() {
-                var json = JSON.parse(req.response);
-                var data = json.trips[0];
-                var route = data.geometry.coordinates;
-                var geojson = {
-                    'type': 'Feature',
-                    'properties': {},
-                    'geometry': {
-                        'type': 'LineString',
-                        'coordinates': route
-                    }
-                };
-                if (map.getSource('route')) {
-                    map.getSource('route').setData(geojson);
-                }
-                else {
-                    map.addLayer({
-                        'id': 'route',
-                        'type': 'line',
-                        'source': {
-                            'type': 'geojson',
-                            'data': {
-                                'type': 'Feature',
-                                'properties': {},
-                                'geometry': {
-                                    'type': 'LineString',
-                                    'coordinates': geojson
-                                }
-                            }
-                        },
-                        'layout': {
-                            'line-join': 'round',
-                            'line-cap': 'round'
-                        },
-                        'paint': {
-                            'line-color': '#3887be',
-                            'line-width': 5,
-                            'line-opacity': 0.75
-                        }
-                    });
-                }
-                var instructions = document.getElementById('instructions');
-                var steps = data.legs[0].steps;
-                var tripInstructions = [];
-                for (var i = 0; i < steps.length; i++) {
-                    tripInstructions.push('<br><li>' + steps[i].maneuver.instruction) +
-                    '</li>';
-                    instructions.innerHTML =
-                    '<br><span class="duration">Tempo de Viagem: ' +
-                    Math.floor(data.duration / 60) +
-                    ' min </span>' +
-                    tripInstructions;
-                }
-            };
-            req.send();
-        }
         map.on('load', function() {
-            getRoute(start);
-            map.addLayer({
-                id: 'point',
-                type: 'circle',
-                source: {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: [{
-                            type: 'Feature',
-                            properties: {},
-                            geometry: {
-                                type: 'Point',
-                                coordinates: start
-                            }
-                        }]
-                    }
-                },
-                paint: {
-                    'circle-radius': 10,
-                    'circle-color': '#3887be'
-                }
-            });
             //Create a School Maker
             // Create a circle layer
             map.addLayer({
                 id: 'warehouse',
                 type: 'circle',
                 source: {
-                    data: warehouse,
+                    data: school,
                     type: 'geojson'
                 },
                 paint: {
@@ -159,7 +93,7 @@
                 id: 'warehouse-symbol',
                 type: 'symbol',
                 source: {
-                    data: warehouse,
+                    data: school,
                     type: 'geojson'
                 },
                 layout: {
@@ -243,27 +177,19 @@
         // Here you'll specify all the parameters necessary for requesting a response from the Optimization API
         function assembleQueryURL() {
             // Store the location of the truck in a variable called coordinates
-            var coordinates = [start];
+            var coordinates = [schoolLocation];
             var distributions = [];
-            keepTrack = [start];
+            keepTrack = [schoolLocation];
             // Create an array of GeoJSON feature collections for each point
             var restJobs = pointHopper.features;
+            console.log(restJobs);
+
             // If there are any orders from this restaurant
             if (restJobs.length > 0) {
                 // Check to see if the request was made after visiting the restaurant
                 var needToPickUp = restJobs.filter(function(d, i) {
                     return d.properties.orderTime > lastAtRestaurant;
                 }).length > 0;
-                console.log(needToPickUp);
-                // If the request was made after picking up from the restaurant,
-                // Add the restaurant as an additional stop
-                if (!needToPickUp) {
-                    var restaurantIndex = coordinates.length;
-                    // Add the restaurant as a coordinate
-                    coordinates.push(schoolLocation);
-                    // push the restaurant itself into the array
-                    keepTrack.push(pointHopper.school);
-                }
                 restJobs.forEach(function(d, i) {
                     // Add dropoff to list
                     keepTrack.push(d);
@@ -303,75 +229,26 @@
                 map.getSource('route')
                     .setData(routeGeoJSON);
                 }
-                var instructions = document.getElementById('instructions');
+                var instructions = document.querySelector('.instructions-body');
+                var instructionsHeader = document.querySelector('.instructions-header');
                 var steps = data.trips[0].legs;
                 var newSteps = [];
                 var tripInstructions = [];
-                console.log('steps',steps[0].steps[0].maneuver.instruction);
                 for (var i = 0; i < steps.length; i++) {
                     for (var j = 0; j < steps[i].steps.length; j++){
                         tripInstructions.push(steps[i].steps[j].maneuver.instruction);                   
                     }
                 }
-                console.log('trip',tripInstructions);
                 for(var k = 0; k < tripInstructions.length; k++){
                     newSteps.push('<br><li>' + tripInstructions[k]) +
                     '</li>';
-                    instructions.innerHTML =
-                    '<br><span class="duration">Tempo de Viagem: ' +
-                    Math.floor(data.trips[0].duration / 60) +
-                    ' min </span>' +
-                    newSteps;
+                    instructions.innerHTML = newSteps;
                 }
+                instructionsHeader.innerHTML = '<br><span class="duration">Tempo de Viagem: ' +
+                    Math.floor(data.trips[0].duration / 60) +
+                    ' min </span>' ;
             })            
         }
-
-        // map.on('click', function(e) {
-        //     var coordsObj = e.lngLat;
-        //     canvas.style.cursor = '';
-        //     var coords = Object.keys(coordsObj).map(function(key) {
-        //         return coordsObj[key];
-        //     });
-        //     var end = {
-        //         type: 'FeatureCollection',
-        //         features: [{
-        //         type: 'Feature',
-        //         properties: {},
-        //         geometry: {
-        //             type: 'Point',
-        //             coordinates: coords
-        //         }
-        //         }
-        //         ]
-        //     };
-        //     if (map.getLayer('end')) {
-        //         map.getSource('end').setData(end);
-        //     } else {
-        //         map.addLayer({
-        //         id: 'end',
-        //         type: 'circle',
-        //         source: {
-        //             type: 'geojson',
-        //             data: {
-        //             type: 'FeatureCollection',
-        //             features: [{
-        //                 type: 'Feature',
-        //                 properties: {},
-        //                 geometry: {
-        //                 type: 'Point',
-        //                 coordinates: coords
-        //                 }
-        //             }]
-        //             }
-        //         },
-        //         paint: {
-        //             'circle-radius': 10,
-        //             'circle-color': '#f30'
-        //         }
-        //         });
-        //     }
-        //     getRoute(coords);
-        // });
     </script>
   </body>
 </html>
