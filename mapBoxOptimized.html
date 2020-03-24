@@ -33,7 +33,7 @@
         var speedFactor = 50;
         var apiCoordenadas = [];
 
-        function myFunction(item, index) {
+        function coordSchoolApi(item, index) {
             apiCoordenadas.push(item);
         }
         $.ajax({
@@ -41,21 +41,12 @@
             url: 'http://127.0.0.1:8000/api/rotas-escola',
         }).done(function(data) {
             var messages = data.message;
-            messages.forEach(myFunction);
+            messages.forEach(coordSchoolApi);
         });
-        console.log(apiCoordenadas);
         // Location in array,location where bus will get students.
         var markerStudents = {
             type: 'FeatureCollection',
-            features: 
-                apiCoordenadas
-                // { type: 'Feature', properties: { Name: 'VA Medical Center -- Leestown Division', Address: '2250 Leestown Rd' }, geometry: { type: 'Point', coordinates: [-44.969957, -22.587863] } },
-                // { type: 'Feature', properties: { Name: 'St. Joseph East', Address: '150 N Eagle Creek Dr' }, geometry: { type: 'Point', coordinates: [-44.952492, -22.579713] } },
-                // { type: 'Feature', properties: { Name: 'Central Baptist Hospital', Address: '1740 Nicholasville Rd' }, geometry: { type: 'Point', coordinates: [-44.946772, -22.563517] } },
-                // { type: 'Feature', properties: { Name: 'VA Medical Center -- Cooper Dr Division', Address: '1101 Veterans Dr' }, geometry: { type: 'Point', coordinates: [-44.971398, -22.579019] } },
-                // { type: 'Feature', properties: { Name: 'Shriners Hospital for Children', Address: '1900 Richmond Rd' }, geometry: { type: 'Point', coordinates: [-44.962679, -22.573512] } },
-                // { type: 'Feature', properties: { Name: 'Eastern State Hospital', Address: '627 W Fourth St' }, geometry: { type: 'Point', coordinates: [-44.960821, -22.572569] } }
-            
+            features: apiCoordenadas
         };
         mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
         var map = new mapboxgl.Map({
@@ -182,14 +173,18 @@
             keepTrack = [schoolLocation];
             // Create an array of GeoJSON feature collections for each point
             var restJobs = pointHopper.features;
-            console.log(restJobs);
-
-            // If there are any orders from this restaurant
+            
             if (restJobs.length > 0) {
-                // Check to see if the request was made after visiting the restaurant
                 var needToPickUp = restJobs.filter(function(d, i) {
                     return d.properties.orderTime > lastAtRestaurant;
                 }).length > 0;
+
+                if (needToPickUp) {
+                    var restaurantIndex = coordinates.length;
+                    coordinates.push(schoolLocation);
+                    keepTrack.push(pointHopper.school);
+                }
+
                 restJobs.forEach(function(d, i) {
                     // Add dropoff to list
                     keepTrack.push(d);
