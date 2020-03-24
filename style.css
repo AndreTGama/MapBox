@@ -34,7 +34,6 @@ body {
   bottom: 20%;
   padding: 20px;
   background-color: rgba(255, 255, 255, 0.9);
-  overflow-y: scroll;
   font-family: sans-serif;
   font-size: 0.8em;
   line-height: 2em;
@@ -44,11 +43,14 @@ body {
   opacity:0.3;
   border:1px solid #1B1B1B;
 }
-.instructions-header{
+#instructions-header{
 
 }
-.instructions-body {
- 
+#instructions-body {
+  position: absolute;
+  overflow-y: scroll;
+  top: 25%;
+  bottom: 10%;
 }
 #instructions-footer{
   

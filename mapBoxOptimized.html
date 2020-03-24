@@ -10,14 +10,12 @@
   </head>
   <body>
     <div id='map'></div>
-    <div id='instructions'>
-        <div class='instructions-header'>
-        </div>
-        <div class='instructions-body'>
-        </div>
-        <div class='instructions-footer'>
-        </div>
-    </div>
+    <div class="card" id='instructions' style="width: 18rem;">
+        <div class="card-header" id='instructions-header'></div>
+        <div class="card-body" id='instructions-body'></div>
+        <div class="card-footer" id='instructions-footer'></div>
+      </div>
+    <div >
     <script>
         // Position the car
         var start = [-44.9695124, -22.5839855];
@@ -224,8 +222,8 @@
                 map.getSource('route')
                     .setData(routeGeoJSON);
                 }
-                var instructions = document.querySelector('.instructions-body');
-                var instructionsHeader = document.querySelector('.instructions-header');
+                var instructions = document.querySelector('#instructions-body');
+                var instructionsHeader = document.querySelector('#instructions-header');
                 var steps = data.trips[0].legs;
                 var newSteps = [];
                 var tripInstructions = [];
