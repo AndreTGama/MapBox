@@ -1,0 +1,141 @@
+<head>
+    <meta charset='utf-8' />
+    <title></title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.8.1/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
+    <link href='style.css' rel='stylesheet' />
+  </head>
+  <body>
+    <div id='map'></div>
+    <div >
+    <script>
+        var schoolLocation = [-44.9695124, -22.5839855];
+        var lastQueryTime = 0;
+        var lastAtRestaurant = 0;
+        var keepTrack = [];
+        var currentSchedule = [];
+        var currentRoute = null;
+        var pointHopper = {};
+        var pause = true;
+        var speedFactor = 50;
+        var apiCoordenadas = [];
+
+        function coordSchoolApi(item, index) {
+            apiCoordenadas.push(item);
+        }
+        $.ajax({
+            method: 'GET',
+            url: 'http://127.0.0.1:8000/api/rotas-todas-escola',
+        }).done(function(data) {
+            var messages = data.message;
+            messages.forEach(coordSchoolApi);
+        });
+        // Location in array,location where bus will get students.
+        var markerStudents = {
+            type: 'FeatureCollection',
+            features: apiCoordenadas
+        };
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmVnYW1hIiwiYSI6ImNqdDhtZWpzNzBhY2ozeXRoNzM0anV1enoifQ.6EhHaaJ8JqGkvP_UvnzEPw';
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v10',
+            center: schoolLocation,
+            zoom: 12
+        });
+        var school = turf.featureCollection([turf.point(schoolLocation)]);
+        var dropoffs = turf.featureCollection([]);
+        var nothing = turf.featureCollection([]);
+
+        map.on('load', function() {
+            //Marker Dropffs
+            map.addLayer({
+                id: 'dropoffs',
+                type: 'circle',
+                source: {
+                    data: dropoffs,
+                    type: 'geojson'
+                },
+                paint: {
+                    'circle-radius': 20,
+                    'circle-color': 'white',
+                    'circle-stroke-color': '#3887be',
+                    'circle-stroke-width': 3
+                }
+            });
+            map.addLayer({
+                id: 'dropoffs-symbol',
+                type: 'symbol',
+                source: {
+                    data: dropoffs,
+                    type: 'geojson'
+                },
+                layout: {
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true,
+                    'icon-image': 'school-15',
+                }
+            });
+            map.addSource('route', {
+                type: 'geojson',
+                data: nothing
+            });
+            updateDropoffs(markerStudents);
+        });
+        function assembleQueryURL() {
+            var coordinates = [schoolLocation];
+            var distributions = [];
+            keepTrack = [schoolLocation];
+            var restJobs = pointHopper.features;
+            if (restJobs.length > 0) {
+                var needToPickUp = restJobs.filter(function(d, i) {
+                    return d.properties.orderTime > lastAtRestaurant;
+                }).length > 0;
+                if (needToPickUp) {
+                    var restaurantIndex = coordinates.length;
+                    coordinates.push(schoolLocation);
+                    keepTrack.push(pointHopper.school);
+                }
+                restJobs.forEach(function(d, i) {
+                    // Add dropoff to list
+                    keepTrack.push(d);
+                    coordinates.push(d.geometry.coordinates);
+                    // if order not yet picked up, add a reroute
+                    if (needToPickUp && d.properties.orderTime > lastAtRestaurant) {
+                        distributions.push(restaurantIndex + ',' + (coordinates.length - 1));
+                    }
+                });
+            }
+            // Set the profile to `driving`
+            // Coordinates will include the current location of the truck,
+            return 'https://api.mapbox.com/optimized-trips/v1/mapbox/driving/' + coordinates.join(';') + '?distributions=' + distributions.join(';') + '&overview=full&steps=true&language=pt-br&geometries=geojson&source=first&access_token=' + mapboxgl.accessToken;
+        }
+        function objectToArray(obj) {
+            var keys = Object.keys(obj);
+            var routeGeoJSON = keys.map(function(key) {
+                return obj[key];
+            });
+            return routeGeoJSON;
+        }  
+        function updateDropoffs(geojson) {
+            map.getSource('dropoffs-symbol').setData(geojson);
+            map.getSource('dropoffs').setData(geojson);
+            pointHopper = geojson;
+            $.ajax({
+                method: 'GET',
+                url: assembleQueryURL(),
+            }).done(function(data) {
+                var routeGeoJSON = turf.featureCollection([turf.feature(data.trips[0].geometry)]);
+                if (!data.trips[0]) {
+                    routeGeoJSON = nothing;
+                } else {
+                map.getSource('route')
+                    .setData(routeGeoJSON);
+                }
+            })            
+        }
+    </script>
+  </body>
+</html>
