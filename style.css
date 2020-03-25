@@ -43,17 +43,11 @@ body {
   opacity:0.3;
   border:1px solid #1B1B1B;
 }
-#instructions-header{
-
-}
 #instructions-body {
   position: absolute;
   overflow-y: scroll;
   top: 25%;
   bottom: 10%;
-}
-#instructions-footer{
-  
 }
 .duration {
     font-size: 2em;
